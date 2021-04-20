@@ -1,3 +1,12 @@
+# 3.2.0
+- Removed unused PyBk legacy code that has been moved to its own container.
+- TODO Moved Diarization service status check from launch to request to handle temporary service unavailabitity. 
+- Added model loading time logging
+- Refactored logging
+- Added overload for all environment parameter as launch arguments.
+- Set speaker diarization in a thread for parallel computing alongside transcription.
+- Removed file writing on disk.
+
 # 3.1.1
 - Change Pykaldi with vosk-API (no python wrapper for decoding function, no extrat packages during installation, c++ implementation based on kaldi functions)
 - New feature: Compute a confidence score per transcription

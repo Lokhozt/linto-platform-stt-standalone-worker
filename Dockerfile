@@ -39,7 +39,7 @@ RUN git clone --depth 1 https://github.com/kaldi-asr/kaldi.git /opt/kaldi && \
              /opt/kaldi/src/nnet \
              /opt/kaldi/src/nnet2 \
              /opt/kaldi/src/nnet3 \
-             /opt/kaldi/src/online2 \
+             /opt/kaldi/src/online2 \   
              /opt/kaldi/src/rnnlm \
              /opt/kaldi/src/sgmm2 \
              /opt/kaldi/src/transform \
@@ -52,12 +52,6 @@ RUN git clone --depth 1 https://github.com/kaldi-asr/kaldi.git /opt/kaldi && \
     cd /opt/kaldi/tools && mkdir openfst_ && mv openfst-*/lib openfst-*/include openfst-*/bin openfst_ && rm openfst_/lib/*.so* openfst_/lib/*.la && \
     rm -r openfst-*/* && mv openfst_/* openfst-*/ && rm -r openfst_
 
-# Install pyBK (speaker diarization toolkit)
-RUN apt install -y software-properties-common && wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 10 && \
-    export LLVM_CONFIG=/usr/bin/llvm-config-10 && \
-    pip3 install numpy && \
-    pip3 install websockets && \
-    pip3 install librosa webrtcvad scipy sklearn
 
 # Install main service packages
 RUN pip3 install flask flask-cors flask-swagger-ui gevent pyyaml && \
