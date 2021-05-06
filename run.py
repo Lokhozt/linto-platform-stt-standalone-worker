@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 import os
-from time import gmtime, strftime
-import timeit
+from time import time
 import threading
 
 import argparse
@@ -11,7 +10,9 @@ import logging
 from flask import Flask, request, abort, Response, json
 from gevent.pywsgi import WSGIServer
 
-from processing import prepare, loadModel, decode, formatAudio
+from processing import prepare, loadModel, decode, formatAudio, process_response
+from processing import checkDiarizationService, diarization_request
+from processing import checkPunctuationService, punctuation_request
 from processing import setupSwaggerUI
 
 app = Flask("__stt-standalone-worker__")
@@ -36,42 +37,55 @@ def transcribe():
             join_metadata = False
         else:
             raise ValueError('Not accepted header')
+        logging.debug("Metadata: {}".format(join_metadata))
 
         # get input file
         if 'file' in request.files.keys():
-            file_buffer = request.files['file']
-            audio_data = worker.formatAudio(file_buffer)
+            file_buffer = request.files['file'].read()
+            audio_data, sampling_rate = formatAudio(file_buffer)
+            start_t = time()
             
             # Diarization request is done on a separate thread.
+            diarization_result = [None] # Create a object to be shared between the main thread and the diarization thread
             if join_metadata:
-                spk_result = [None]
-                spk_thread = threading.Thread(target=speakerdiarization.get, args=[file_buffer, spk_result], daemon=True) # Check file format
-                start_t = timeit.timeit()
-                spk_thread.start()
-
+                if diarization_service_set:
+                    if checkDiarizationService(args.diarization_host, args.diarization_port):
+                        spk_thread = threading.Thread(target=diarization_request,
+                                                    args=[args.diarization_host, args.diarization_port, file_buffer, diarization_result, "/"],
+                                                    daemon=True)
+                        spk_thread.start()
+                    else:
+                        raise Exception("Could not reach diarization service healthcheck.")
+                else:
+                    raise Exception("Diarization service is not set on this worker.")
             # Transcription
-            result, confidence = decode(join_metadata)
-            logger.debug("Transcription complete (t={}s)".format(timeit.timeit() - start_t))
-            logger.debug("Waiting for diarization")
-
-            if join_metadata:            
+            result, confidence = decode(audio_data, model, sampling_rate, join_metadata, False)
+            logger.debug("Transcription complete (t={}s)".format(time() - start_t))
+            
+            if join_metadata:
+                logger.debug("Waiting for diarization")            
                 spk_thread.join()
+                if diarization_result[0] is None:
+                    raise Exception("Diarization process returned None.")
 
             #Postprocessing
             logger.debug("Postprocessing ...")
-            trans = worker.get_response(result, spk_result[0], confidence, join_metadata)
+            trans = process_response(result, diarization_result[0], confidence, join_metadata)
+            response = trans
             logger.debug("... Complete")
-            response = punctuation.get(trans)
-            worker.clean()
+            logger.debug("Punctuation ...")
+            if punctuation_service_set:
+                #if checkPunctuationService(args.punctuation_host, args.punctuation_port, interface=args.punctuation_route):
+                pass
         else:
             raise ValueError('No audio file was uploaded')
-
+        # TODO libérer la ressource
         return response, 200
     except ValueError as error:
         return str(error), 400
     except Exception as e:
-        worker.log.error(e)
-        return 'Server Error', 500
+        logger.error(e)
+        return 'Server Error: {}'.format(str(e)), 500
 
 # Rejected request handlers
 @app.errorhandler(405)
@@ -86,7 +100,7 @@ def page_not_found(error):
 
 @app.errorhandler(500)
 def server_error(error):
-    worker.log.error(error)
+    logger.error(error)
     return 'Server Error', 500
 
 if __name__ == '__main__':
@@ -129,6 +143,36 @@ if __name__ == '__main__':
         help='Swagger file path',
         default=os.environ.get('SWAGGER_PATH', None))
     parser.add_argument(
+        '--diarization_host',
+        type=str,
+        help='Speaker Diarization service host',
+        default=os.environ.get('SPEAKER_DIARIZATION_HOST', None)
+    )
+    parser.add_argument(
+        '--diarization_port',
+        type=int,
+        help='Speaker Diarization service port',
+        default=os.environ.get('SPEAKER_DIARIZATION_PORT', None)
+    )
+    parser.add_argument(
+        '--punctuation_host',
+        type=str,
+        help='Punctuation service host',
+        default=os.environ.get('PUNCTUATION_HOST', None)
+    )
+    parser.add_argument(
+        '--punctuation_port',
+        type=int,
+        help='Punctuation service port',
+        default=os.environ.get('PUNCTUATION_PORT', None)
+    )
+    parser.add_argument(
+        '--punctuation_route',
+        type=str,
+        help='Punctuation service route',
+        default=os.environ.get('PUNCTUATION_ROUTE', '/')
+    )
+    parser.add_argument(
         '--debug',
         action='store_true',
         help='Display debug logs')
@@ -136,6 +180,8 @@ if __name__ == '__main__':
     
     logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
     
+    diarization_service_set = args.diarization_host is not None and args.diarization_port is not None
+    punctuation_service_set = args.diarization_host is not None and args.diarization_port is not None
     try:    
         # Setup SwaggerUI
         if args.swagger_path is not None:
@@ -148,12 +194,12 @@ if __name__ == '__main__':
 
         # Load ASR models (acoustic model and decoding graph)
         logger.info('Loading acoustic model and decoding graph ...')
-        start = timeit.timeit()
+        start = time()
         try:
             model = loadModel(args.am_path, args.lm_path, os.path.join(args.config_path, "online.conf"))
         except Exception as e:
             raise Exception("Failed to load transcription model: {}".format(str(e)))
-        logger.info('Acoustic model and decoding graph loaded. (t={}s)'.format(timeit.timeit() - start))
+        logger.info('Acoustic model and decoding graph loaded. (t={}s)'.format(time() - start))
 
         spkModel = None
         

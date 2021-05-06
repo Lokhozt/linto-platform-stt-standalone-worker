@@ -1,6 +1,7 @@
 import re
+import json
 
-def parse_text(self, text):
+def parse_text(text):
     ''' Remove extra symbols '''
     text = re.sub(r"<unk>", "", text)  # remove <unk> symbol
     text = re.sub(r"#nonterm:[^ ]* ", "", text)  # remove entity's mark
@@ -9,19 +10,19 @@ def parse_text(self, text):
     text = text.strip()
     return text
 
-# Postprocess response
-def get_response(self, dataJson, speakers, confidence, is_metadata):
+def process_response(dataJson, speakers, confidence, join_metadata):
+    """ Process response from transcription. """
     if dataJson is not None:
         data = json.loads(dataJson)
         data['conf'] = confidence
-        if not is_metadata:
+        if not join_metadata:
             text = data['text']  # get text from response
-            return self.parse_text(text)
+            return parse_text(text)
 
         elif 'words' in data:
             if speakers is not None:
                 # Generate final output data
-                return self.process_output(data, speakers)
+                return process_output(data, speakers)
             else:
                 return {'speakers': [], 'text': data['text'], 'confidence-score': data['conf'], 'words': data['words']}
 
@@ -33,7 +34,7 @@ def get_response(self, dataJson, speakers, confidence, is_metadata):
         return {'speakers': [], 'text': '', 'confidence-score': 0, 'words': []}
 
 # return a json object including word-data, speaker-data
-def process_output(self, data, spkrs):
+def process_output(data, spkrs):
     try:
         speakers = []
         text = []
@@ -55,7 +56,7 @@ def process_output(self, data, spkrs):
                 speaker["words"] = words
 
                 text.append(
-                    str(spkrs[i]["spk_id"])+' : ' + self.parse_text(text_))
+                    str(spkrs[i]["spk_id"])+' : ' + parse_text(text_))
                 speakers.append(speaker)
 
                 words = [word]
@@ -73,10 +74,10 @@ def process_output(self, data, spkrs):
         speaker["words"] = words
 
         text.append(str(spkrs[i]["spk_id"]) +
-                    ' : ' + self.parse_text(text_))
+                    ' : ' + parse_text(text_))
         speakers.append(speaker)
 
         return {'speakers': speakers, 'text': text, 'confidence-score': data['conf']}
     except Exception as e:
-        self.log.error(e)
+        log.error(e)
         return {'text': data['text'], 'words': data['words'], 'confidence-score': data['conf'], 'spks': []}

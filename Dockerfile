@@ -39,7 +39,7 @@ RUN git clone --depth 1 https://github.com/kaldi-asr/kaldi.git /opt/kaldi && \
              /opt/kaldi/src/nnet \
              /opt/kaldi/src/nnet2 \
              /opt/kaldi/src/nnet3 \
-             /opt/kaldi/src/online2 \   
+             /opt/kaldi/src/online2 \
              /opt/kaldi/src/rnnlm \
              /opt/kaldi/src/sgmm2 \
              /opt/kaldi/src/transform \
@@ -52,6 +52,12 @@ RUN git clone --depth 1 https://github.com/kaldi-asr/kaldi.git /opt/kaldi && \
     cd /opt/kaldi/tools && mkdir openfst_ && mv openfst-*/lib openfst-*/include openfst-*/bin openfst_ && rm openfst_/lib/*.so* openfst_/lib/*.la && \
     rm -r openfst-*/* && mv openfst_/* openfst-*/ && rm -r openfst_
 
+# Install pyBK (speaker diarization toolkit)
+RUN apt install -y software-properties-common && wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 10 && \
+    export LLVM_CONFIG=/usr/bin/llvm-config-10 && \
+    pip3 install numpy && \
+    pip3 install websockets && \
+    pip3 install librosa webrtcvad scipy sklearn
 
 # Install main service packages
 RUN pip3 install flask flask-cors flask-swagger-ui gevent pyyaml && \
@@ -69,11 +75,18 @@ RUN apt-get update && apt-get install -y curl
 
 # Define the main folder
 WORKDIR /usr/src/speech-to-text
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y curl
 
-COPY pyBK/diarizationFunctions.py pyBK/diarizationFunctions.py
-COPY tools.py run.py docker-entrypoint.sh wait-for-it.sh ./
+RUN pip3 install wavio
+
+# Define the main folder
+WORKDIR /usr/src/speech-to-text
+
+COPY run.py docker-entrypoint.sh wait-for-it.sh ./
+COPY processing /usr/src/speech-to-text/processing
 
 EXPOSE 80
 
 # Entrypoint handles the passed arguments
-ENTRYPOINT ["./docker-entrypoint.sh"]
+#ENTRYPOINT ["./docker-entrypoint.sh"]

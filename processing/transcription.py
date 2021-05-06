@@ -1,6 +1,8 @@
 import os
+import io
+import re
 import configparser
-
+import wavio
 import numpy as np
 from vosk import Model, KaldiRecognizer
 
@@ -18,7 +20,7 @@ def prepare(am_path:str, lm_path:str, config_path:str):
     decoder_settings.read(am_path+'/decode.cfg')
 
     # Prepare "online.conf"
-    am_path = am_path+"/" + decoder_settings.get('decoder_params', 'ampath')
+    #am_path = os.path.join(am_path,decoder_settings.get('decoder_params', 'ampath'))
     with open(am_path+"/conf/online.conf") as f:
         values = f.readlines()
         with open(config_path+"/online.conf", 'w') as f:
@@ -26,19 +28,13 @@ def prepare(am_path:str, lm_path:str, config_path:str):
                 f.write(i)
             f.write("--ivector-extraction-config=" +
                     config_path+"/ivector_extractor.conf\n")
-            f.write("--mfcc-config="+am_path+"/conf/mfcc.conf\n")
-            f.write(
-                "--beam="+decoder_settings.get('decoder_params', 'beam')+"\n")
-            f.write(
-                "--lattice-beam="+decoder_settings.get('decoder_params', 'lattice_beam')+"\n")
-            f.write("--acoustic-scale=" +
-                    decoder_settings.get('decoder_params', 'acwt')+"\n")
-            f.write(
-                "--min-active="+decoder_settings.get('decoder_params', 'min_active')+"\n")
-            f.write(
-                "--max-active="+decoder_settings.get('decoder_params', 'max_active')+"\n")
-            f.write("--frame-subsampling-factor="+decoder_settings.get(
-                'decoder_params', 'frame_subsampling_factor')+"\n")
+            f.write("--mfcc-config=" + os.path.join(am_path, "conf/mfcc.conf") + "\n")
+            f.write("--beam=" + decoder_settings.get('decoder_params', 'beam') + "\n")
+            f.write("--lattice-beam=" + decoder_settings.get('decoder_params', 'lattice_beam')+"\n")
+            f.write("--acoustic-scale=" + decoder_settings.get('decoder_params', 'acwt') + "\n")
+            f.write("--min-active=" + decoder_settings.get('decoder_params', 'min_active') + "\n")
+            f.write("--max-active=" + decoder_settings.get('decoder_params', 'max_active') + "\n")
+            f.write("--frame-subsampling-factor=" + decoder_settings.get('decoder_params', 'frame_subsampling_factor') + "\n")
 
     # Prepare "ivector_extractor.conf"
     with open(am_path+"/conf/ivector_extractor.conf") as f:
@@ -58,13 +54,10 @@ def prepare(am_path:str, lm_path:str, config_path:str):
             f.write("--ivector-extractor="+am_path +
                     "/ivector_extractor/final.ie")
 
-def loadModel(am_path, lm_path, config_path):
-    return Model(am_path,lm_path, os.path.join(config_path, "online.conf"))
-
     # Prepare "word_boundary.int" if not exist
     if not os.path.exists(lm_path+"/word_boundary.int") and os.path.exists(am_path+"/phones.txt"):
-        self.log.info("Create word_boundary.int based on phones.txt")
-        with open(am_path+"/phones.txt") as f:
+        print("Create word_boundary.int based on phones.txt")
+        with open(am_path+"/phones.txt", 'r') as f:
             phones = f.readlines()
 
         with open(lm_path+"/word_boundary.int", "w") as f:
@@ -85,22 +78,26 @@ def loadModel(am_path, lm_path, config_path):
                     else:
                         f.write(id+" nonword\n")
 
+def loadModel(am_path, lm_path, config_path):
+    print("MODEL" , os.path.join(config_path, "online.conf"))
+    return Model(am_path,lm_path, config_path)
+
 def formatAudio(file_buffer):
     ''' Formats audio from a wavFile buffer to a numpy array for processing.'''
-    file_buffer_io = io.BytesIO(file)
-    try:
-        file_content = wavio.read(file_buffer_io)
-        # if stereo file, convert to mono by computing the mean of the channels
-        if file_content.data.ndim == 2:
-            if file_content.data.shape[1] == 1:
-                data = np.squeeze(file_content.data)
-            elif file_content.data.shape[1] == 2:
-                data = mean(data, axis=1, dtype=np.int16)
-            return data
-        else:
-            raise Exception("Audio Format not supported.")
-    except Exception as e:
-        raise Exception("The uploaded file format is not supported.")
+    file_buffer_io = io.BytesIO(file_buffer)
+    #try:
+    file_content = wavio.read(file_buffer_io)
+    # if stereo file, convert to mono by computing the mean of the channels
+    if file_content.data.ndim == 2:
+        if file_content.data.shape[1] == 1:
+            data = np.squeeze(file_content.data)
+        elif file_content.data.shape[1] == 2:
+            data = mean(data, axis=1, dtype=np.int16)
+        return data, file_content.rate
+    else:
+        raise Exception("Audio Format not supported.")
+    #except Exception as e:
+     #   raise Exception("The uploaded file format is not supported.")
 
 def decode(audio_data, model, sampling_rate: int, with_metadata: bool, is_online):
     ''' Transcribe the audio data using the vosk library with the defined model.'''

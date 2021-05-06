@@ -1,6 +1,7 @@
 # 3.2.0
 - Removed unused PyBk legacy code that has been moved to its own container.
-- TODO Moved Diarization service status check from launch to request to handle temporary service unavailabitity. 
+- Moved Diarization service status check from launch to request to handle temporary service unavailabitity. 
+- Moved Punctuation service status check from launch to request to handle temporary service unavailabitity.
 - Added model loading time logging
 - Refactored logging
 - Added overload for all environment parameter as launch arguments.
