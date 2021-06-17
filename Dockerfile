@@ -1,15 +1,13 @@
-FROM ubuntu:18.04
-LABEL maintainer="irebai@linagora.com"
+FROM python:3
+LABEL maintainer="irebai@linagora.com, rbaraglia@linagora.com"
 
 RUN apt-get update &&\
     apt-get install -y \
-    python2.7   \
-    python3     \
-    python3-pip \
     git  \
     swig \
     nano \
     sox  \
+    curl \
     automake wget unzip build-essential libtool zlib1g-dev locales libatlas-base-dev ca-certificates gfortran subversion &&\
     apt-get clean
 
@@ -52,16 +50,13 @@ RUN git clone --depth 1 https://github.com/kaldi-asr/kaldi.git /opt/kaldi && \
     cd /opt/kaldi/tools && mkdir openfst_ && mv openfst-*/lib openfst-*/include openfst-*/bin openfst_ && rm openfst_/lib/*.so* openfst_/lib/*.la && \
     rm -r openfst-*/* && mv openfst_/* openfst-*/ && rm -r openfst_
 
-# Install pyBK (speaker diarization toolkit)
+# Install LLVM
 RUN apt install -y software-properties-common && wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 10 && \
-    export LLVM_CONFIG=/usr/bin/llvm-config-10 && \
-    pip3 install numpy && \
-    pip3 install websockets && \
-    pip3 install librosa webrtcvad scipy sklearn
+   export LLVM_CONFIG=/usr/bin/llvm-config-10
 
-# Install main service packages
-RUN pip3 install flask flask-cors flask-swagger-ui gevent pyyaml && \
-    apt-get install -y ffmpeg
+# Install python dependencies
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
 # build VOSK KALDI
 COPY vosk-api /opt/vosk-api
@@ -70,23 +65,13 @@ RUN cd /opt/vosk-api/python && \
     export KALDI_MKL=1 && \
     python3 setup.py install --user --single-version-externally-managed --root=/
 
-# Install curl for healthcheck
-RUN apt-get update && apt-get install -y curl
-
-# Define the main folder
-WORKDIR /usr/src/speech-to-text
-# Install curl for healthcheck
-RUN apt-get update && apt-get install -y curl
-
-RUN pip3 install wavio
-
-# Define the main folder
 WORKDIR /usr/src/speech-to-text
 
-COPY run.py docker-entrypoint.sh wait-for-it.sh ./
+COPY run.py docker-entrypoint.sh ./
 COPY processing /usr/src/speech-to-text/processing
+
+ENV PYTHONPATH="${PYTHONPATH}:/usr/src/speech-to-text/processing"
 
 EXPOSE 80
 
-# Entrypoint handles the passed arguments
 #ENTRYPOINT ["./docker-entrypoint.sh"]

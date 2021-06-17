@@ -78,14 +78,14 @@ def prepare(am_path:str, lm_path:str, config_path:str):
                     else:
                         f.write(id+" nonword\n")
 
-def loadModel(am_path, lm_path, config_path):
+def loadModel(am_path: str, lm_path: str, config_path: str):
+    """ Load STT model """
     print("MODEL" , os.path.join(config_path, "online.conf"))
     return Model(am_path,lm_path, config_path)
 
 def formatAudio(file_buffer):
     ''' Formats audio from a wavFile buffer to a numpy array for processing.'''
     file_buffer_io = io.BytesIO(file_buffer)
-    #try:
     file_content = wavio.read(file_buffer_io)
     # if stereo file, convert to mono by computing the mean of the channels
     if file_content.data.ndim == 2:
@@ -96,8 +96,6 @@ def formatAudio(file_buffer):
         return data, file_content.rate
     else:
         raise Exception("Audio Format not supported.")
-    #except Exception as e:
-     #   raise Exception("The uploaded file format is not supported.")
 
 def decode(audio_data, model, sampling_rate: int, with_metadata: bool, is_online):
     ''' Transcribe the audio data using the vosk library with the defined model.'''

@@ -1,7 +1,7 @@
 import re
 import json
 
-def parse_text(text):
+def clean_text(text):
     ''' Remove extra symbols '''
     text = re.sub(r"<unk>", "", text)  # remove <unk> symbol
     text = re.sub(r"#nonterm:[^ ]* ", "", text)  # remove entity's mark
@@ -10,28 +10,21 @@ def parse_text(text):
     text = text.strip()
     return text
 
-def process_response(dataJson, speakers, confidence, join_metadata):
-    """ Process response from transcription. """
-    if dataJson is not None:
-        data = json.loads(dataJson)
-        data['conf'] = confidence
+def prepare_response(transcription: dict, confidence: float, join_metadata: bool):
+    """ Prepare response from transcription. """
+    res_meta = {"text": "", "confidence-score": "", "words" : []}
+
+    if transcription is not None:
+        transcription_content = json.loads(transcription)
+        res_meta['confidence-score'] = confidence
         if not join_metadata:
-            text = data['text']  # get text from response
-            return parse_text(text)
-
-        elif 'words' in data:
-            if speakers is not None:
-                # Generate final output data
-                return process_output(data, speakers)
-            else:
-                return {'speakers': [], 'text': data['text'], 'confidence-score': data['conf'], 'words': data['words']}
-
-        elif 'text' in data:
-            return {'speakers': [], 'text': data['text'], 'confidence-score': data['conf'], 'words': []}
-        else:
-            return {'speakers': [], 'text': '', 'confidence-score': 0, 'words': []}
-    else:
-        return {'speakers': [], 'text': '', 'confidence-score': 0, 'words': []}
+            # Raw format return text only
+            return clean_text(transcription_content["text"])
+        res_meta["text"] = transcription_content["text"]
+        if 'words' in transcription_content:
+            res_meta["words"] = transcription_content["words"]
+            
+    return res_meta
 
 # return a json object including word-data, speaker-data
 def process_output(data, spkrs):
@@ -43,7 +36,7 @@ def process_output(data, spkrs):
         words = []
 
         for word in data['words']:
-            if i+1 == len(spkrs):
+            if len(spkrs) == i+1:
                 continue
             if i+1 < len(spkrs) and word["end"] < spkrs[i+1]["seg_begin"]:
                 text_ += word["word"] + " "
@@ -56,7 +49,7 @@ def process_output(data, spkrs):
                 speaker["words"] = words
 
                 text.append(
-                    str(spkrs[i]["spk_id"])+' : ' + parse_text(text_))
+                    str(spkrs[i]["spk_id"])+' : ' + clean_text(text_))
                 speakers.append(speaker)
 
                 words = [word]
@@ -74,7 +67,7 @@ def process_output(data, spkrs):
         speaker["words"] = words
 
         text.append(str(spkrs[i]["spk_id"]) +
-                    ' : ' + parse_text(text_))
+                    ' : ' + clean_text(text_))
         speakers.append(speaker)
 
         return {'speakers': speakers, 'text': text, 'confidence-score': data['conf']}
