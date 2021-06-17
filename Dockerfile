@@ -74,4 +74,4 @@ ENV PYTHONPATH="${PYTHONPATH}:/usr/src/speech-to-text/processing"
 
 EXPOSE 80
 
-#ENTRYPOINT ["./docker-entrypoint.sh"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
