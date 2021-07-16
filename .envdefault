@@ -1,3 +1,8 @@
 AM_PATH=/path/to/acoustic/models/dir
 LM_PATH=/path/to/language/models/dir
 SWAGGER_PATH=./document/swagger.yml
+
+# MICROSERVICE CONFIG
+SERVICE_NAME=servicename
+CELERY_BROKER=broker.url
+RESSOURCE_FOLDER=/path/to/sharedfolder

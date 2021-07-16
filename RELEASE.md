@@ -1,3 +1,6 @@
+# 3.2.1
+- Add Celery Worker to connect the worker to the service broker.
+
 # 3.2.0
 - Refactored code
 - Remove diarization and punctuation that has been moved upward server-side. 
