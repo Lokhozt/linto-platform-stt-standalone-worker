@@ -10,6 +10,7 @@ services:
       - ${AM_PATH}:/opt/models/AM
       - ${LM_PATH}:/opt/models/LM
       - ${SWAGGER_PATH}:/opt/swagger.yml
+      - ${AUDIO_FOLDER}:/opt/audio
     ports:
       - target: 80
         published: 8888

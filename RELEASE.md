@@ -1,5 +1,5 @@
 # 3.2.1
-- Add Celery Worker to connect the worker to the service broker.
+- Add optionnal Celery Worker to connect the worker to a service broker.
 
 # 3.2.0
 - Refactored code

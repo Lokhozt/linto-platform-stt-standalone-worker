@@ -4,5 +4,5 @@ SWAGGER_PATH=./document/swagger.yml
 
 # MICROSERVICE CONFIG
 SERVICE_NAME=servicename
-CELERY_BROKER=broker.url
+SERVICE_BROKER=redis://broker:brokerport
 RESSOURCE_FOLDER=/path/to/sharedfolder

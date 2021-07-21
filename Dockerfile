@@ -65,12 +65,15 @@ RUN cd /opt/vosk-api/python && \
     export KALDI_MKL=1 && \
     python3 setup.py install --user --single-version-externally-managed --root=/
 
-WORKDIR /usr/src/speech-to-text
+WORKDIR /usr/src/app
 
-COPY run.py docker-entrypoint.sh ./
-COPY processing /usr/src/speech-to-text/processing
+COPY processing /usr/src/app/processing
+COPY celery_int /usr/src/app/celery_int
+COPY supervisor /usr/src/app/supervisor
+RUN mkdir -p /var/log/supervisor/
+COPY ingress.py docker-entrypoint.sh ./
 
-ENV PYTHONPATH="${PYTHONPATH}:/usr/src/speech-to-text/processing"
+ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/processing"
 
 EXPOSE 80
 

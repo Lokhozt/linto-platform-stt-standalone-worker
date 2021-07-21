@@ -110,6 +110,35 @@ Our service requires an audio file in `Waveform format`. It should has the follo
     - microphone: any type
     - duration: <30 minutes
 
+## Micro-services integration
+The service can be integrated into an existing micro-services architecture using celery.
+It needs a connexion to a message broker (Redis, RabbitMQ, ...) and a audio files volume declared.
+
+| Env variable | Description | Example |
+|:-|:-|:-|
+|SERVICE_NAME| STT service name, use to connect to the proper broker queue |my_stt_service_name|
+|SERVICE_BROKER| Service broker uri | redis://my_redis_broker:6379|
+|RESSOURCE_FOLDER|shared audio folder|~/linto_shared_mount/|
+
+
+* SERVICE_NAME is a service ID that can be shared between multiple instance of the same transcription worker. Broker-wise it is the name of the 
+dedicated task queue for the transcription.
+* SERVICE_BROKER is the message broker URI through which tasks and responses are exchanged.
+* RESSOURCE_FOLDER is a folder where the audiofile is located to prevent sendind huge payload through the message broker.
+
+**Call exemple using celery with python**
+
+```python
+from celery import Celery
+app = Celery(__name__)
+app.conf.broker_url = "redis://my_redis_broker:6379/0"
+app.conf.result_backend = "redis://my_redis_broker:6379/1"
+
+mytask = app.send_task(name="transcribe_task", queue=my_stt_service_name, args=[file_name, "raw"]) #file_name being an existing file in RESSOURCE_FOLDER
+result = mytask.get()
+
+```
+
 ### API
 <!-- tabs:start -->
 
